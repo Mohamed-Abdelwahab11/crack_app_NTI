@@ -2,19 +2,43 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+import os
+import gdown
 
 # ------------------------------------------------------------------
-# Config - matches how the model was trained in the notebook
+# Config
 # ------------------------------------------------------------------
 IMG_SIZE = (224, 224)
-CLASS_NAMES = ["Negative", "Positive"]  # 0 = Negative (no crack), 1 = Positive (crack)
-MODEL_PATH = "crack_model.keras"  # change if you saved with a different name
+CLASS_NAMES = ["Negative", "Positive"]
+MODEL_PATH = "crack_model.keras"
 
-st.set_page_config(page_title="Surface Crack Detection", page_icon="🧱", layout="centered")
+# ⚠️ Replace this with your Google Drive file ID
+GDRIVE_FILE_ID = "1a_6_o86NDVQZJqZbNWs24hhw6PdZmCIe"
+
+st.set_page_config(
+    page_title="Surface Crack Detection",
+    page_icon="🧱",
+    layout="centered"
+)
+
+
+def download_model():
+    """Download model from Google Drive if not present or is an LFS pointer."""
+    if os.path.exists(MODEL_PATH):
+        # Check if it's a real model or just a Git LFS pointer (< 1KB)
+        if os.path.getsize(MODEL_PATH) < 1000:
+            os.remove(MODEL_PATH)
+        else:
+            return  # Model already exists
+
+    with st.spinner("Downloading model... please wait (~130 MB)"):
+        url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+        gdown.download(url, MODEL_PATH, quiet=False)
 
 
 @st.cache_resource
 def load_model():
+    download_model()
     return tf.keras.models.load_model(MODEL_PATH)
 
 
@@ -22,40 +46,42 @@ def preprocess_image(image: Image.Image) -> np.ndarray:
     image = image.convert("RGB")
     image = image.resize(IMG_SIZE)
     arr = np.array(image, dtype=np.float32) / 255.0
-    arr = np.expand_dims(arr, axis=0)  # batch dimension -> (1, 224, 224, 3)
+    arr = np.expand_dims(arr, axis=0)
     return arr
 
 
 def main():
     st.title("🧱 Surface Crack Detection")
-    st.write(
-        "ارفع صورة لسطح خرساني (concrete surface) وهيقولك الموديل فيه كراك ولا لأ."
-    )
+    st.write("Upload a concrete surface image and the model will detect whether it has a crack or not.")
+
+    if GDRIVE_FILE_ID == "YOUR_GOOGLE_DRIVE_FILE_ID":
+        st.error("⚠️ Google Drive File ID not configured. Please update the app.")
+        return
 
     model = load_model()
 
     uploaded_file = st.file_uploader(
-        "اختار صورة", type=["jpg", "jpeg", "png"]
+        "Upload an image", type=["jpg", "jpeg", "png"]
     )
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        st.image(image, caption="الصورة اللي رفعتها", use_container_width=True)
+        st.image(image, caption="Uploaded Image", use_container_width=True)
 
-        with st.spinner("جاري التحليل..."):
+        with st.spinner("Analyzing..."):
             processed = preprocess_image(image)
-            prediction = model.predict(processed)[0][0]  # sigmoid output, single value
+            prediction = model.predict(processed)[0][0]
 
         predicted_class = CLASS_NAMES[1] if prediction >= 0.5 else CLASS_NAMES[0]
         confidence = prediction if prediction >= 0.5 else 1 - prediction
 
-        st.subheader("النتيجة")
+        st.subheader("Result")
         if predicted_class == "Positive":
-            st.error(f"⚠️ فيه كراك (Crack Detected) — Confidence: {confidence:.2%}")
+            st.error(f"⚠️ Crack Detected — Confidence: {confidence:.2%}")
         else:
-            st.success(f"✅ مفيش كراك (No Crack) — Confidence: {confidence:.2%}")
+            st.success(f"✅ No Crack Detected — Confidence: {confidence:.2%}")
 
-        with st.expander("تفاصيل تقنية"):
+        with st.expander("Technical Details"):
             st.write(f"Raw sigmoid output: {prediction:.4f}")
             st.write(f"Threshold: 0.5")
 
