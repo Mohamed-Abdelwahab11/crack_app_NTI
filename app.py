@@ -12,8 +12,8 @@ IMG_SIZE = (224, 224)
 CLASS_NAMES = ["Negative", "Positive"]
 MODEL_PATH = "crack_model.keras"
 
-# ⚠️ Replace this with your Google Drive file ID
-GDRIVE_FILE_ID = "1a_6_o86NDVQZJqZbNWs24hhw6PdZmCIe"
+# Old model backup ID: 1a_6_o86NDVQZJqZbNWs24hhw6PdZmCIe
+GDRIVE_FILE_ID = "1DlAOA56mjR8Pnh3gsxJl1hYUpufvMJm3"
 
 st.set_page_config(
     page_title="Surface Crack Detection",
@@ -31,7 +31,7 @@ def download_model():
         else:
             return  # Model already exists
 
-    with st.spinner("Downloading model... please wait (~130 MB)"):
+    with st.spinner("Downloading model... please wait"):
         url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
         gdown.download(url, MODEL_PATH, quiet=False)
 
